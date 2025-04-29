@@ -1,0 +1,5 @@
+# Build.
+*.cf
+*.ghw
+*.o
+ema_filter_tb
