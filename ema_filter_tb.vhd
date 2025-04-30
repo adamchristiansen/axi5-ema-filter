@@ -65,11 +65,11 @@ begin
     -- `1 - 1/e` (i.e. 63%).
     alpha <= to_slv(to_sfixed(0.095, ALPHA_WIDTH - ALPHA_RADIX - 1, -ALPHA_RADIX));
     -- Unit step input.
-    aresetn <= '0';
+    aresetn         <= '0';
     s_axis_x_tvalid <= '0';
     s_axis_x_tdata  <= (others => '0');
     wait for 10 * CLK_PERIOD;
-    aresetn <= '1';
+    aresetn         <= '1';
     s_axis_x_tvalid <= '1';
     wait for 10 * CLK_PERIOD;
     s_axis_x_tdata <= to_slv(to_sfixed(10.0, DATA_WIDTH - DATA_RADIX - 1, -DATA_RADIX));
@@ -82,11 +82,11 @@ begin
     wait for 150 * CLK_PERIOD;
     assert_interval(yreal, 9.99, 10.0);
     -- Linear input.
-    aresetn <= '0';
+    aresetn         <= '0';
     s_axis_x_tvalid <= '0';
     s_axis_x_tdata  <= (others => '0');
     wait for 10 * CLK_PERIOD;
-    aresetn <= '1';
+    aresetn         <= '1';
     s_axis_x_tvalid <= '1';
     wait for 10 * CLK_PERIOD;
     while x <= 10.0 loop
