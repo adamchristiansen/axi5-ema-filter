@@ -8,6 +8,7 @@ use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 
 --- TODO: Docs
+--- TODO: Describe output behavior when `m_axis_y_tready` is deasserted.
 entity ema_filter is
 generic (
     DATA_WIDTH: natural := 16;
@@ -20,9 +21,11 @@ port (
     aresetn: in std_logic;
     -- Input signal.
     s_axis_x_tdata: in std_logic_vector(DATA_WIDTH - 1 downto 0);
+    s_axis_x_tready: out std_logic;
     s_axis_x_tvalid: in std_logic;
     -- Output signal.
     m_axis_y_tdata: out std_logic_vector(DATA_WIDTH - 1 downto 0);
+    m_axis_y_tready: in std_logic;
     m_axis_y_tvalid: out std_logic;
     -- EMA coefficient.
     alpha: in std_logic_vector(ALPHA_WIDTH - 1 downto 0)
@@ -31,6 +34,14 @@ end ema_filter;
 
 architecture behavioral of ema_filter
 is
+    --- State of the EMA finite state machine (FSM).
+    ---
+    --- The `prep` stages are used to load in one value to use the the first `y` value in the
+    --- computation, after which, the `ema` stages cycle through on loop to produce an output every
+    --- 4 clock cycles. The reason that there are 4 `prep` stages is to ensure that
+    --- `s_axis_x_tready` is asserted every 4 clock cycles.
+    type EmaState is (prep0, prep1, prep2, prep3, ema0, ema1, ema2, ema3);
+
     --- A helper function that resizes `arg` to match `size_res` with consistent rounding and
     --- overflow semantics.
     ---
@@ -70,37 +81,63 @@ assert ALPHA_RADIX <= ALPHA_WIDTH
     severity failure;
 
 ema_p: process (aclk)
-    variable a:  sfixed(ALPHA_WIDTH - ALPHA_RADIX - 1 downto -ALPHA_RADIX) := (others => '0');
-    variable b:  sfixed(a'high downto a'low) := (others => '0'); -- `1 - a`.
-    variable x:  sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX) := (others => '0');
-    variable ax: sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX) := (others => '0');
-    variable by: sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX) := (others => '0');
-    variable y:  sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX) := (others => '0');
+    variable state: EmaState;
+    variable a:  sfixed(ALPHA_WIDTH - ALPHA_RADIX - 1 downto -ALPHA_RADIX);
+    variable x:  sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX);
+    variable d:  sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX);
+    variable ad: sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX);
+    variable y:  sfixed(DATA_WIDTH - DATA_RADIX - 1 downto -DATA_RADIX);
 begin
     if rising_edge(aclk) then
         if aresetn = '0' then
-            m_axis_y_tvalid <= '0';
+            state           := prep0;
+            a               := (others => '0');
+            x               := (others => '0');
+            d               := (others => '0');
+            ad              := (others => '0');
+            y               := (others => '0');
+            s_axis_x_tready <= '0';
             m_axis_y_tdata  <= (others => '0');
-            a  := (others => '0');
-            b  := (others => '0');
-            x  := (others => '0');
-            ax := (others => '0');
-            by := (others => '0');
-            y  := (others => '0');
+            m_axis_y_tvalid <= '0';
         else
-            if s_axis_x_tvalid = '1' then
-                a  := to_sfixed(alpha, a);
-                b  := resize_consistent(to_sfixed(1.0, a) - a, b);
-                x  := to_sfixed(s_axis_x_tdata, x);
-                ax := resize_consistent(a * x, ax);
-                by := resize_consistent(b * y, by);
-                y  := resize_consistent(ax + by, y);
-                m_axis_y_tvalid <= '1';
-                m_axis_y_tdata  <= to_slv(y);
-            else
-                m_axis_y_tvalid <= '0';
+            case state is
+            when prep0 =>
+                state := prep1;
+                s_axis_x_tready <= '1';
+            when prep1 =>
+                if s_axis_x_tvalid = '1' then
+                    state           := prep2;
+                    y               := to_sfixed(s_axis_x_tdata, y);
+                    s_axis_x_tready <= '0';
+                end if;
+            when prep2 =>
+                state := prep3;
+            when prep3 =>
+                state := ema0;
+            when ema0 =>
+                state := ema1;
+                s_axis_x_tready <= '1';
                 m_axis_y_tdata  <= (others => '0');
-            end if;
+                m_axis_y_tvalid <= '0';
+            when ema1 =>
+                if s_axis_x_tvalid = '1' then
+                    state           := ema2;
+                    a               := to_sfixed(alpha, a);
+                    x               := to_sfixed(s_axis_x_tdata, x);
+                    d               := resize_consistent(x - y, d);
+                    s_axis_x_tready <= '0';
+                end if;
+            when ema2 =>
+                state := ema3;
+                ad    := resize_consistent(a * d, ad);
+            when ema3 =>
+                state := ema0;
+                y     := resize_consistent(y + ad, y);
+                if m_axis_y_tready = '1' then
+                    m_axis_y_tdata  <= to_slv(y);
+                    m_axis_y_tvalid <= '1';
+                end if;
+            end case;
         end if;
     end if;
 end process;
