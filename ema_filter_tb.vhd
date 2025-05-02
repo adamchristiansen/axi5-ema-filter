@@ -23,8 +23,10 @@ is
     signal aclk: std_logic;
     signal aresetn: std_logic;
     signal s_axis_x_tdata: std_logic_vector(DATA_WIDTH - 1 downto 0);
+    signal s_axis_x_tready: std_logic;
     signal s_axis_x_tvalid: std_logic;
     signal m_axis_y_tdata: std_logic_vector(DATA_WIDTH - 1 downto 0);
+    signal m_axis_y_tready: std_logic;
     signal m_axis_y_tvalid: std_logic;
     signal alpha: std_logic_vector(ALPHA_WIDTH - 1 downto 0);
 
@@ -61,41 +63,63 @@ end process;
 x_p: process
     variable x: real := 0.0;
 begin
-    -- This alpha has a time constant of 100 ns, which is the time for a step response to reach
+    -- This alpha has a time constant of 400 ns, which is the time for a step response to reach
     -- `1 - 1/e` (i.e. 63%).
     alpha <= to_slv(to_sfixed(0.095, ALPHA_WIDTH - ALPHA_RADIX - 1, -ALPHA_RADIX));
     -- Unit step input.
     aresetn         <= '0';
     s_axis_x_tvalid <= '0';
     s_axis_x_tdata  <= (others => '0');
-    wait for 10 * CLK_PERIOD;
+    m_axis_y_tready <= '1';
+    wait for 20 * CLK_PERIOD;
     aresetn         <= '1';
     s_axis_x_tvalid <= '1';
-    wait for 10 * CLK_PERIOD;
+    wait for 20 * CLK_PERIOD;
     s_axis_x_tdata <= to_slv(to_sfixed(10.0, DATA_WIDTH - DATA_RADIX - 1, -DATA_RADIX));
-    wait for 10 * CLK_PERIOD; -- 100 ns.
+    wait for 40 * CLK_PERIOD; -- 400 ns.
     assert_interval(yreal, 6.27, 6.37);
-    wait for 10 * CLK_PERIOD; -- 100 ns.
+    wait for 40 * CLK_PERIOD; -- 400 ns.
     assert_interval(yreal, 8.59, 8.69);
-    wait for 10 * CLK_PERIOD; -- 100 ns.
+    wait for 40 * CLK_PERIOD; -- 400 ns.
     assert_interval(yreal, 9.45, 9.55);
-    wait for 150 * CLK_PERIOD;
+    wait for 840 * CLK_PERIOD;
     assert_interval(yreal, 9.99, 10.0);
     -- Linear input.
     aresetn         <= '0';
     s_axis_x_tvalid <= '0';
     s_axis_x_tdata  <= (others => '0');
-    wait for 10 * CLK_PERIOD;
+    m_axis_y_tready <= '1';
+    wait for 20 * CLK_PERIOD;
     aresetn         <= '1';
     s_axis_x_tvalid <= '1';
-    wait for 10 * CLK_PERIOD;
+    wait for 20 * CLK_PERIOD;
     while x <= 10.0 loop
         s_axis_x_tdata <= to_slv(to_sfixed(x, DATA_WIDTH - DATA_RADIX - 1, -DATA_RADIX));
-        wait for CLK_PERIOD;
+        wait for 4 * CLK_PERIOD;
         x := x + 1.0;
     end loop;
     assert_interval(yreal, 0.0, 5.0); -- The response is slow.
-    wait for 180 * CLK_PERIOD;
+    wait for 916 * CLK_PERIOD;
+    assert_interval(yreal, 9.99, 10.0);
+    -- When `m_axis_y_tready` is deasserted for a unit step input.
+    aresetn         <= '0';
+    s_axis_x_tvalid <= '0';
+    s_axis_x_tdata  <= (others => '0');
+    m_axis_y_tready <= '1';
+    wait for 20 * CLK_PERIOD;
+    aresetn         <= '1';
+    s_axis_x_tvalid <= '1';
+    wait for 20 * CLK_PERIOD;
+    s_axis_x_tdata <= to_slv(to_sfixed(10.0, DATA_WIDTH - DATA_RADIX - 1, -DATA_RADIX));
+    wait for 40 * CLK_PERIOD; -- 400 ns.
+    assert_interval(yreal, 6.27, 6.37);
+    m_axis_y_tready <= '0';
+    wait for 40 * CLK_PERIOD; -- 400 ns.
+    assert_interval(yreal, 0.00, 0.00);
+    m_axis_y_tready <= '1';
+    wait for 40 * CLK_PERIOD; -- 400 ns.
+    assert_interval(yreal, 9.45, 9.55);
+    wait for 840 * CLK_PERIOD;
     assert_interval(yreal, 9.99, 10.0);
     finish;
 end process;
@@ -111,8 +135,10 @@ port map (
     aclk => aclk,
     aresetn => aresetn,
     s_axis_x_tdata => s_axis_x_tdata,
+    s_axis_x_tready => s_axis_x_tready,
     s_axis_x_tvalid => s_axis_x_tvalid,
     m_axis_y_tdata => m_axis_y_tdata,
+    m_axis_y_tready => m_axis_y_tready,
     m_axis_y_tvalid => m_axis_y_tvalid,
     alpha => alpha
 );

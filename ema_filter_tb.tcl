@@ -13,8 +13,10 @@ set lower 0
 set aclk            "top.ema_filter_tb.aclk"
 set aresetn         "top.ema_filter_tb.aresetn"
 set s_axis_x_tdata  "top.ema_filter_tb.s_axis_x_tdata\[$upper:$lower\]"
+set s_axis_x_tready "top.ema_filter_tb.s_axis_x_tready"
 set s_axis_x_tvalid "top.ema_filter_tb.s_axis_x_tvalid"
 set m_axis_y_tdata  "top.ema_filter_tb.m_axis_y_tdata\[$upper:$lower\]"
+set m_axis_y_tready "top.ema_filter_tb.m_axis_y_tready"
 set m_axis_y_tvalid "top.ema_filter_tb.m_axis_y_tvalid"
 set alpha           "top.ema_filter_tb.alpha\[$upper:$lower\]"
 
@@ -23,10 +25,10 @@ gtkwave::/Edit/Insert_Comment "Clock & Reset"
 gtkwave::addSignalsFromList [list $aclk $aresetn]
 gtkwave::/Edit/Insert_Blank
 gtkwave::/Edit/Insert_Comment "Input Signal"
-gtkwave::addSignalsFromList [list $s_axis_x_tdata $s_axis_x_tvalid]
+gtkwave::addSignalsFromList [list $s_axis_x_tdata $s_axis_x_tready $s_axis_x_tvalid]
 gtkwave::/Edit/Insert_Blank
 gtkwave::/Edit/Insert_Comment "Filtered Signal"
-gtkwave::addSignalsFromList [list $m_axis_y_tdata $m_axis_y_tvalid]
+gtkwave::addSignalsFromList [list $m_axis_y_tdata $m_axis_y_tready $m_axis_y_tvalid]
 gtkwave::/Edit/Insert_Blank
 gtkwave::/Edit/Insert_Comment "EMA Coefficient"
 gtkwave::addSignalsFromList [list $alpha]
