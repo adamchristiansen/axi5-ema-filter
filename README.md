@@ -36,7 +36,36 @@ port (
 > [!TIP]
 > This information can also be found in [`ema_filter.vhd`](./ema_filter.vhd).
 
-> **TODO**: Write this.
+An exponential moving average (EMA) filter.
+
+An EMA filter produces an output, `y`, from an input `x`, using the equation:
+
+```
+y[t] = α*x[t] - (1 - α)*y[t-1]
+     = y[t-1] + α*(x[t] - y[t-1])
+```
+
+where `0 ≤ α ≤ 1` is the smoothing factor. This implementation uses the second form of the
+equation above, which has one fewer multiplication.
+
+The EMA filter clocks one data point in every 4 `aclk` cycles and clocks one out every 4 `aclk`
+cycles. If `m_axis_y_tready` is not asserted when the output is ready, that point is lost as no
+buffering is provided on the output.
+
+### Generics
+
+- `DATA_WIDTH`: Width in bits of the input and output AXI4/5-Streams.
+- `DATA_RADIX`: Radix position in bits of the fixed-point input and output AXI4/5-Streams.
+- `ALPHA_WIDTH`: Width in bits of the input `alpha` coefficient.
+- `ALPHA_RADIX`: Radix position in bits of the input `alpha` coefficient.
+
+### Ports
+
+- `aclk`: Global AXI4/5-Stream clock.
+- `aresetn`: Global active-low AXI4/5-Stream reset.
+- `s_axis_x_*`: AXI4/5-Stream for the input signal as a signed fixed-point integer.
+- `m_axis_y_*`: AXI4/5-Stream for the filtered output signal as a signed fixed-point integer.
+- `alpha`: The smoothing factor, `α`, as a fixed-point integer.
 
 ## Testing
 
